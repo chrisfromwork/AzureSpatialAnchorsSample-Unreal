@@ -4,7 +4,50 @@
 #include "GameFramework/Actor.h"
 #include "AzureSpatialAnchorManager.generated.h"
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE(FAnchorsUpdatedDelegate);
+UENUM(BlueprintType)
+enum class EAnchorMesh : uint8
+{
+	Cylinder,
+	Sphere,
+	Cone
+};
+
+USTRUCT(BlueprintType)
+struct FAnchorDetails
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY(BlueprintReadWrite)
+	FString AnchorIdentifier;
+
+	UPROPERTY(BlueprintReadWrite)
+	EAnchorMesh AnchorMesh;
+
+	FAnchorDetails(FString Identifier, EAnchorMesh Mesh)
+	{
+		AnchorIdentifier = Identifier;
+		AnchorMesh = Mesh;
+	}
+
+	FAnchorDetails()
+	{
+		AnchorIdentifier = FString{};
+		AnchorMesh = EAnchorMesh::Cylinder;
+	}
+
+	bool operator==(const FAnchorDetails& rhs) const
+	{
+		return (AnchorIdentifier == rhs.AnchorIdentifier);
+	}
+
+	bool operator!=(const FAnchorDetails& rhs) const
+	{
+		return (AnchorIdentifier != rhs.AnchorIdentifier);
+	}
+};
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FAnchorAddedDelegate, const FAnchorDetails&, AnchorDetails);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FAnchorRemovedDelegate, const FString&, AnchorIdentifier);
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class AZURESPATIALANCHORSSAMPLE_API AAzureSpatialAnchorManager : public AActor
@@ -13,29 +56,39 @@ class AZURESPATIALANCHORSSAMPLE_API AAzureSpatialAnchorManager : public AActor
 
 public:
 	UFUNCTION(BlueprintCallable, Category = "Azure Spatial Anchors Sample")
-	static AAzureSpatialAnchorManager* GetInstance() { return Instance; }
+	static AAzureSpatialAnchorManager* GetInstance(AActor* Actor);
 
 	AAzureSpatialAnchorManager();
 	void GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifetimeProps) const override;
-
-	UFUNCTION(BlueprintCallable, Server, Reliable, WithValidation, Category = "Azure Spatial Anchors Sample")
-	void Server_AddAnchor(const FString& AnchorIdentifier);
+	void AddAnchor(const FAnchorDetails& Details);
+	void RemoveAnchor(const FString& AnchorIdentifier);
 
 	UFUNCTION(BlueprintCallable, Category = "Azure Spatial Anchors Sample")
 	TArray<FString> GetAnchorIdentifiers();
 
-	UPROPERTY(BlueprintAssignable, EditAnywhere, Category = "Azure Spatial Anchors Sample")
-	FAnchorsUpdatedDelegate AnchorsUpdated;
+	UFUNCTION(BlueprintCallable, Category = "Azure Spatial Anchors Sample")
+	TMap<FString, FAnchorDetails> GetAnchorDetails();
+
+	UPROPERTY(BlueprintAssignable, Category = "Azure Spatial Anchors Sample")
+	FAnchorAddedDelegate AnchorAdded;
+
+	UPROPERTY(BlueprintAssignable, Category = "Azure Spatial Anchors Sample")
+	FAnchorRemovedDelegate AnchorRemoved;
 
 protected:
-	virtual void BeginPlay() override;
 	virtual void BeginDestroy() override;
 
 	UFUNCTION(NetMulticast, Reliable, WithValidation)
-	void Multicast_AnchorsUpdated();
+	void Multicast_AnchorAdded(const FAnchorDetails& Details);
 
-	UPROPERTY(EditAnywhere, Replicated)
-	TArray<FString> AnchorIdentifiers;
+	UFUNCTION(NetMulticast, Reliable, WithValidation)
+	void Multicast_AnchorRemoved(const FString& Identifier);
 
-	static AAzureSpatialAnchorManager* Instance;
+	UFUNCTION()
+	void OnReplicate_AnchorIdentifiers(TArray<FAnchorDetails> Details);
+
+	UPROPERTY(VisibleAnywhere, ReplicatedUsing=OnReplicate_AnchorIdentifiers)
+	TArray<FAnchorDetails> AnchorDetails;
+
+	static TMap<UWorld*, AAzureSpatialAnchorManager*> InstanceMap;
 };
