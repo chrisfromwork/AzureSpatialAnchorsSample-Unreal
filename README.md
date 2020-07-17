@@ -44,6 +44,7 @@ This project is an adaptation of the Unreal Mobile AR sample project to support 
 
 ## TODOs
 1. Additional work is still needed to correctly draw content in the scene when a client joins a session late. The needed Azure Spatial Anchor identifiers to search for should already be replicated, but no logic exists to start a search for these anchors when a client joins late.
+1. The sample could be improved by additional instructive UI so that users know how to create and delete anchors. It's also unclear how to start a single user session on mobile (This can be done by running as a listen server even if no clients can successfully connect).
 
 ## Known Issues
 1. iOS and Android devices may not support running as listen servers. Running the server experience for a mobile device will however allow the device to run a single user Azure Spatial Anchors experience. The more widely tested experience flow for this sample application is running a HoloLens 2 + Holographic Remoting in the editor as a listen server and attaching iOS and Android devices as clients.
